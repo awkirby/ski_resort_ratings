@@ -55,39 +55,41 @@ else:
     # Get a name for the resort
     resort = st.text_input("Your resort:", value="<enter resort name>")
 
-    while resort != "<enter resort name>":
+    if resort == "<enter resort name>":
+        st.warning("Please input a name")
+        st.stop()
 
-        st.write("Tell us about ", resort)
+    st.success("\nTell us about " + resort)
 
-        # Get the elevation information
-        min_elevation = st.number_input("Base elevation, metres", 0, 4000, key='min')
-        max_elevation = st.number_input("Peak elevation, metres", 0, 4000, key='max')
-        elevation_change = max_elevation - min_elevation
+    # Get the elevation information
+    min_elevation = st.number_input("Base elevation, metres", 0, 4000, key='min')
+    max_elevation = st.number_input("Peak elevation, metres", 0, 4000, key='max')
+    elevation_change = max_elevation - min_elevation
 
-        # Piste Information
-        piste_length = st.number_input("Total length of ski pistes, kilometres", 0.0, 3000.0)
-        piste_length_blue = st.number_input("Length of blue ski pistes, kilometres", 0.0, piste_length)
-        piste_length_red = st.number_input("Length of red ski pistes, kilometres", 0.0, piste_length - piste_length_blue)
-        piste_length_black = st.number_input("Length of black ski pistes, kilometres",
+    # Piste Information
+    piste_length = st.number_input("Total length of ski pistes, kilometres", 0.0, 3000.0)
+    piste_length_blue = st.number_input("Length of blue ski pistes, kilometres", 0.0, piste_length)
+    piste_length_red = st.number_input("Length of red ski pistes, kilometres", 0.0, piste_length - piste_length_blue)
+    piste_length_black = st.number_input("Length of black ski pistes, kilometres",
                                              piste_length - piste_length_blue - piste_length_red,
                                              piste_length - piste_length_blue - piste_length_red)
 
-        # Ski Lifts
-        ski_lifts = st.number_input("Total number of ski lifts", 1, 200)
-        # Ski Pass
-        pass_cost = st.number_input("Cost of a day pass in Euros", 0.0, 300.0)
+    # Ski Lifts
+    ski_lifts = st.number_input("Total number of ski lifts", 1, 200)
+    # Ski Pass
+    pass_cost = st.number_input("Cost of a day pass in Euros", 0.0, 300.0)
 
-        # Construct the dataFrame entry
-        # There are 82 inputs into the classifier, primarily driven by the 1-hot encoding of continent, country
-        new_resort_data = np.zeros(82)
-        # Note some data inputs are dropped for reasons of collinearity
-        new_resort_data[0] = elevation_change
-        new_resort_data[1] = min_elevation
-        new_resort_data[2] = piste_length
-        new_resort_data[3] = piste_length_blue
-        new_resort_data[4] = piste_length_red
-        new_resort_data[5] = ski_lifts
-        new_resort_data[6] = pass_cost
+    # Construct the dataFrame entry
+    # There are 82 inputs into the classifier, primarily driven by the 1-hot encoding of continent, country
+    new_resort_data = np.zeros(82)
+    # Note some data inputs are dropped for reasons of collinearity
+    new_resort_data[0] = elevation_change
+    new_resort_data[1] = min_elevation
+    new_resort_data[2] = piste_length
+    new_resort_data[3] = (piste_length_blue / piste_length) * 100
+    new_resort_data[4] = (piste_length_red / piste_length) * 100
+    new_resort_data[5] = ski_lifts
+    new_resort_data[6] = pass_cost
 
 _, col2, _ = st.beta_columns(3)
 
@@ -116,9 +118,9 @@ with col2:
                 st.text(rating[0].capitalize() + '!')
 
         else:
-            st.text("The predicted rating for your resort is:")
-            rating = model.predict(new_resort_data)
-            st.text(rating[0].capitalize() + '!')
+            st.success("The predicted rating\n for your resort is:")
+            rating = model.predict(new_resort_data.reshape(1, -1))
+            st.warning(rating[0].capitalize() + '!')
 
 make_changes = st.radio("Would you like to make changes to the resort?", ["Yes", "No"])
 
