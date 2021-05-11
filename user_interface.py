@@ -43,37 +43,53 @@ if resort_exists == 'Yes':
 
     # Check if the cost in euros is missing
     if df_resorts.loc[resort_index].any(skipna=False):
-        pass_cost = st.slider("Cost of day pass is missing, please enter:", 0.0, 300.0)
+        pass_cost = st.number_input("Cost of day pass is missing, please enter:", 0.0, 300.0)
         df_resorts.loc[resort_index, "Cost in Euros"] = pass_cost
 
-    # Display resort information (To be improved!)
-    st.table(df_resorts[df_resorts['Name'] == resort].drop(columns=['Star Rating']))
+    # Display resort information TODO: Improve look
+    left, _ = st.beta_columns(2)
+    with left:
+        st.table(df_resorts[df_resorts['Name'] == resort].drop(columns=['Star Rating']).T)
 
 else:
     # Get a name for the resort
     resort = st.text_input("Your resort:", value="<enter resort name>")
 
-    st.write("Tell us about ", resort)
+    while resort != "<enter resort name>":
 
-    # Get the elevation information
-    min_elevation = st.number_input("Base elevation, metres", 0, 4000)
-    max_elevation = st.number_input("Peak elevation, metres", 0, 4000)
-    elevation_change = max_elevation - min_elevation
+        st.write("Tell us about ", resort)
 
-    # Piste Information
-    piste_length = st.number_input("Total length of ski pistes, kilometres", 0.0, 3000.0)
-    piste_length_blue = st.number_input("Length of blue ski pistes, kilometres", 0.0, piste_length)
-    piste_length_red = st.number_input("Length of red ski pistes, kilometres", 0.0, piste_length - piste_length_blue)
-    piste_length_black = st.number_input("Length of black ski pistes, kilometres",
-                                         piste_length - piste_length_blue - piste_length_red,
-                                         piste_length - piste_length_blue - piste_length_red)
+        # Get the elevation information
+        min_elevation = st.number_input("Base elevation, metres", 0, 4000, key='min')
+        max_elevation = st.number_input("Peak elevation, metres", 0, 4000, key='max')
+        elevation_change = max_elevation - min_elevation
 
-    # Ski Lifts
-    ski_lifts = st.number_input("Total number of ski lifts", 1, 200)
-    # Ski Pass
-    pass_cost = st.slider("Cost of a day pass in Euros", 0.0, 300.0)
+        # Piste Information
+        piste_length = st.number_input("Total length of ski pistes, kilometres", 0.0, 3000.0)
+        piste_length_blue = st.number_input("Length of blue ski pistes, kilometres", 0.0, piste_length)
+        piste_length_red = st.number_input("Length of red ski pistes, kilometres", 0.0, piste_length - piste_length_blue)
+        piste_length_black = st.number_input("Length of black ski pistes, kilometres",
+                                             piste_length - piste_length_blue - piste_length_red,
+                                             piste_length - piste_length_blue - piste_length_red)
 
-col1, col2, col3 = st.beta_columns(3)
+        # Ski Lifts
+        ski_lifts = st.number_input("Total number of ski lifts", 1, 200)
+        # Ski Pass
+        pass_cost = st.number_input("Cost of a day pass in Euros", 0.0, 300.0)
+
+        # Construct the dataFrame entry
+        # There are 82 inputs into the classifier, primarily driven by the 1-hot encoding of continent, country
+        new_resort_data = np.zeros(82)
+        # Note some data inputs are dropped for reasons of collinearity
+        new_resort_data[0] = elevation_change
+        new_resort_data[1] = min_elevation
+        new_resort_data[2] = piste_length
+        new_resort_data[3] = piste_length_blue
+        new_resort_data[4] = piste_length_red
+        new_resort_data[5] = ski_lifts
+        new_resort_data[6] = pass_cost
+
+_, col2, _ = st.beta_columns(3)
 
 with col2:
     if st.button("Get Rating"):
@@ -85,19 +101,24 @@ with col2:
                                          df_resorts_ml.drop(columns=["Star Rating"]).loc[resort_index]).reshape(1, -1))
                 st.text(rating[0].capitalize() + '!')
             except KeyError:
-                # Need to format data (see "supervised_learning.ipynb" for more information)
-                resort_for_prediction = df_resorts.drop(columns=[
+                # Get the Dataframe in the format that the model trained in
+                df_resorts_prediction = df_resorts.drop(columns=[
                                                                 "Name",
                                                                 "Max Elevation (m)",
                                                                 "Black Piste Percent",
                                                                 "Star Rating"
-                                                                ]).loc[resort_index]
-                resort_for_prediction = pd.get_dummies(resort_for_prediction, columns=["Continent", "Country"])
+                                                                ])
+                df_resorts_prediction = pd.get_dummies(df_resorts_prediction, columns=["Continent", "Country"])
+
+                # Take only the resort that we are predicting
+                resort_for_prediction = df_resorts_prediction.loc[resort_index]
                 rating = model.predict(np.asarray(resort_for_prediction).reshape(1, -1))
                 st.text(rating[0].capitalize() + '!')
 
         else:
-            st.text("Under Construction")
+            st.text("The predicted rating for your resort is:")
+            rating = model.predict(new_resort_data)
+            st.text(rating[0].capitalize() + '!')
 
 make_changes = st.radio("Would you like to make changes to the resort?", ["Yes", "No"])
 
