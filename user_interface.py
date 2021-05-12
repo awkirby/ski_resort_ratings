@@ -126,11 +126,3 @@ make_changes = st.radio("Would you like to make changes to the resort?", ["Yes",
 
 
 
-# Get all the features in a dictionary
-base_resort = {}
-
-#base_resort['Total Piste Length (km)'] = float(input("Enter the total piste length in km:\n"))
-#blue_piste_length = float(input("Enter the total length of blue pistes in km (i.e. 3.3):\n"))
-#red_piste_length = float(input("Enter the total length of red pistes in km (i.e. 2.0):\n"))
-#black_piste_length = base_resort['Total Piste Length (km)'] - blue_piste_length - red_piste_length
-
