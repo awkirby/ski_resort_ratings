@@ -24,7 +24,7 @@ continent = st.selectbox('Continent:', sorted(df_resorts['Continent'].unique()))
 country = st.selectbox('Country (if available):',
                        sorted(df_resorts['Country'][df_resorts['Continent'] == continent].unique()))
 
-country_exists = st.radio("Is your country available?", ["Yes", "No"])
+country_exists = st.radio("Is your country available?", ["Yes", "No"], index=0)
 
 if country_exists == "Yes":
 
@@ -34,6 +34,7 @@ if country_exists == "Yes":
     resort_exists = st.radio("Is your resort available?", ["Yes", "No"])
 
 else:
+    country = None
     resort_exists = "No"
 
 # Adapt interface based on selection
@@ -46,7 +47,7 @@ if resort_exists == 'Yes':
         pass_cost = st.number_input("Cost of day pass is missing, please enter:", 0.0, 300.0)
         df_resorts.loc[resort_index, "Cost in Euros"] = pass_cost
 
-    # Display resort information TODO: Improve look
+    # Display resort information
     left, _ = st.beta_columns(2)
     with left:
         st.table(df_resorts[df_resorts['Name'] == resort].drop(columns=['Star Rating']).T)
@@ -79,17 +80,29 @@ else:
     # Ski Pass
     pass_cost = st.number_input("Cost of a day pass in Euros", 0.0, 300.0)
 
-    # Construct the dataFrame entry
-    # There are 82 inputs into the classifier, primarily driven by the 1-hot encoding of continent, country
-    new_resort_data = np.zeros(82)
+    # Construct the feature vector (keep naming consistent with selection from existing options)
+    # Get the number of features in the classifier, minus the target feature
+    num_features = len(df_resorts_ml.drop(columns=["Star Rating"]).columns)
+    resort_for_prediction = np.zeros(num_features)
+
     # Note some data inputs are dropped for reasons of collinearity
-    new_resort_data[0] = elevation_change
-    new_resort_data[1] = min_elevation
-    new_resort_data[2] = piste_length
-    new_resort_data[3] = (piste_length_blue / piste_length) * 100
-    new_resort_data[4] = (piste_length_red / piste_length) * 100
-    new_resort_data[5] = ski_lifts
-    new_resort_data[6] = pass_cost
+    resort_for_prediction[0] = elevation_change
+    resort_for_prediction[1] = min_elevation
+    resort_for_prediction[2] = piste_length
+    resort_for_prediction[3] = (piste_length_blue / piste_length) * 100  # Piste breakdown is in %s
+    resort_for_prediction[4] = (piste_length_red / piste_length) * 100
+    resort_for_prediction[5] = ski_lifts
+    resort_for_prediction[6] = pass_cost
+    # Include the location information, where available
+    # Use the index() method to get the location in the feature vector for a specific Continent or Country
+    # Use list() function to account for the Index object not having an index() method
+    continent_position = list(df_resorts_ml.drop(columns=["Star Rating"]).columns).index("Continent_" + continent)
+    resort_for_prediction[continent_position] = 1
+
+    # Check if the resort is in an existing country
+    if country is not None:
+        country_position = list(df_resorts_ml.drop(columns=["Star Rating"]).columns).index("Country_" + country)
+        resort_for_prediction[country_position] = 1
 
 _, col2, _ = st.beta_columns(3)
 
@@ -98,9 +111,10 @@ with col2:
         if resort_exists == "Yes":
             # Some resorts are not in the classifier-ready DataFrame. Check
             try:
-                # Convert to an array in order to allow the .predict method to take in a single input
-                rating = model.predict(np.asarray(
-                                         df_resorts_ml.drop(columns=["Star Rating"]).loc[resort_index]).reshape(1, -1))
+                # Assign the feature vector to a variable
+                resort_for_prediction = np.asarray(df_resorts_ml.drop(columns=["Star Rating"]).loc[resort_index])
+                # Use .reshape() to allow the .predict() method to take a single value
+                rating = model.predict(resort_for_prediction.reshape(1, -1))
                 st.text(rating[0].capitalize() + '!')
             except KeyError:
                 # Get the Dataframe in the format that the model trained in
@@ -113,16 +127,37 @@ with col2:
                 df_resorts_prediction = pd.get_dummies(df_resorts_prediction, columns=["Continent", "Country"])
 
                 # Take only the resort that we are predicting
-                resort_for_prediction = df_resorts_prediction.loc[resort_index]
-                rating = model.predict(np.asarray(resort_for_prediction).reshape(1, -1))
+                # Conversion to array gives access to the .reshape() method
+                resort_for_prediction = np.asarray(df_resorts_prediction.loc[resort_index])
+                rating = model.predict(resort_for_prediction.reshape(1, -1))
                 st.text(rating[0].capitalize() + '!')
 
         else:
             st.success("The predicted rating\n for your resort is:")
-            rating = model.predict(new_resort_data.reshape(1, -1))
+            rating = model.predict(resort_for_prediction.reshape(1, -1))
             st.warning(rating[0].capitalize() + '!')
 
-make_changes = st.radio("Would you like to make changes to the resort?", ["Yes", "No"])
+make_changes = st.radio("Would you like to make changes to the resort?", ["Yes", "No"], index=1)
 
+if make_changes == "Yes":
 
+    # Create new resort
+    updated_resort = np.copy(resort_for_prediction)
+
+    # Select feature to change
+    features = ["Ski Lifts", "Cost", "Pistes", "Elevation Details"]
+    change_feature = st.selectbox('Select features to change', features)
+
+    if change_feature == "Ski Lifts":
+        updated_ski_lifts = st.number_input("Updated number of Ski Lifts",
+                                    min_value=1, max_value=200, value=int(updated_resort[5]))
+        # Update to new value
+        updated_resort[5] = updated_ski_lifts
+
+    elif features == "Cost":
+        pass
+    elif features == "Pistes":
+        pass
+    else:
+        pass
 
