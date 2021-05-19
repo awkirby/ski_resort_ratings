@@ -137,27 +137,50 @@ with col2:
             rating = model.predict(resort_for_prediction.reshape(1, -1))
             st.warning(rating[0].capitalize() + '!')
 
-make_changes = st.radio("Would you like to make changes to the resort?", ["Yes", "No"], index=1)
+# A rating must be requested to populate the resort_for_prediction variable
+try:
+    if resort_for_prediction:
+        pass
+except NameError:
+    st.warning("Request rating to continue...")
+    st.stop()
 
-if make_changes == "Yes":
+st.write("Make changes to improve your rating")
+make_changes = st.radio("Make Changes?", ["Yes", "No"], index=1)
 
-    # Create new resort
-    updated_resort = np.copy(resort_for_prediction)
+if make_changes == "No":
+    st.warning("No changes requested")
+    st.stop()
 
-    # Select feature to change
-    features = ["Ski Lifts", "Cost", "Pistes", "Elevation Details"]
-    change_feature = st.selectbox('Select features to change', features)
+# Create new resort
+updated_resort = np.copy(resort_for_prediction)
 
-    if change_feature == "Ski Lifts":
-        updated_ski_lifts = st.number_input("Updated number of Ski Lifts",
+# Select feature to change
+features = ["Ski Lifts", "Cost", "Pistes", "Elevation Details"]
+features_to_update = st.multiselect('Select features to change', features)
+
+if "Ski Lifts" in features_to_update:
+    updated_ski_lifts = st.number_input("Updated number of Ski Lifts",
                                     min_value=1, max_value=200, value=int(updated_resort[5]))
-        # Update to new value
-        updated_resort[5] = updated_ski_lifts
+    # Update to new value
+    updated_resort[5] = updated_ski_lifts
 
-    elif features == "Cost":
-        pass
-    elif features == "Pistes":
-        pass
-    else:
-        pass
+if "Cost" in features_to_update:
+    updated_cost = st.number_input("Update cost of ski pass (in Euros)",
+                                            min_value=0.0, max_value=300.0, value=updated_resort[6], step=1.00)
+    # Update to new value
+    updated_resort[6] = updated_cost
+
+if "Pistes" in features_to_update:
+    updated_piste_length = st.number_input("Updated piste length (in kilometres)",
+                                               min_value=0.0, max_value=3000.0, value=updated_resort[2], step=0.1)
+    #updated_piste_length_blue = st.number_input("Length of blue ski pistes, kilometres", 0.0, piste_length)
+    #updated_piste_length_red = st.number_input("Length of red ski pistes, kilometres", 0.0,
+                                           #piste_length - piste_length_blue)
+    #updated_piste_length_black = st.number_input("Length of black ski pistes, kilometres",
+                                           #  piste_length - piste_length_blue - piste_length_red,
+                                            # piste_length - piste_length_blue - piste_length_red)
+
+if "Elevation Details" in features_to_update:
+    pass
 
