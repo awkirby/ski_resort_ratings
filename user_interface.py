@@ -52,6 +52,28 @@ if resort_exists == 'Yes':
     with left:
         st.table(df_resorts[df_resorts['Name'] == resort].drop(columns=['Star Rating']).T)
 
+    # Place resort information into correct format for classification
+
+    # Some resorts are not in the classifier-ready DataFrame. Check
+    try:
+        # Assign the feature vector to a variable
+        resort_for_prediction = np.asarray(df_resorts_ml.drop(columns=["Star Rating"]).loc[resort_index])
+
+    except KeyError:
+        # Get the Dataframe in the format that the model trained in
+        df_resorts_prediction = df_resorts.drop(columns=[
+            "Name",
+            "Max Elevation (m)",
+            "Black Piste Percent",
+            "Star Rating"
+        ])
+        df_resorts_prediction = pd.get_dummies(df_resorts_prediction, columns=["Continent", "Country"])
+
+        # Take only the resort that we are predicting
+        # Conversion to array gives access to the .reshape() method
+        resort_for_prediction = np.asarray(df_resorts_prediction.loc[resort_index])
+
+
 else:
     # Get a name for the resort
     resort = st.text_input("Your resort:", value="<enter resort name>")
@@ -108,42 +130,9 @@ _, col2, _ = st.beta_columns(3)
 
 with col2:
     if st.button("Get Rating"):
-        if resort_exists == "Yes":
-            # Some resorts are not in the classifier-ready DataFrame. Check
-            try:
-                # Assign the feature vector to a variable
-                resort_for_prediction = np.asarray(df_resorts_ml.drop(columns=["Star Rating"]).loc[resort_index])
-                # Use .reshape() to allow the .predict() method to take a single value
-                rating = model.predict(resort_for_prediction.reshape(1, -1))
-                st.text(rating[0].capitalize() + '!')
-            except KeyError:
-                # Get the Dataframe in the format that the model trained in
-                df_resorts_prediction = df_resorts.drop(columns=[
-                                                                "Name",
-                                                                "Max Elevation (m)",
-                                                                "Black Piste Percent",
-                                                                "Star Rating"
-                                                                ])
-                df_resorts_prediction = pd.get_dummies(df_resorts_prediction, columns=["Continent", "Country"])
-
-                # Take only the resort that we are predicting
-                # Conversion to array gives access to the .reshape() method
-                resort_for_prediction = np.asarray(df_resorts_prediction.loc[resort_index])
-                rating = model.predict(resort_for_prediction.reshape(1, -1))
-                st.text(rating[0].capitalize() + '!')
-
-        else:
-            st.success("The predicted rating\n for your resort is:")
-            rating = model.predict(resort_for_prediction.reshape(1, -1))
-            st.warning(rating[0].capitalize() + '!')
-
-# A rating must be requested to populate the resort_for_prediction variable
-try:
-    if resort_for_prediction:
-        pass
-except NameError:
-    st.warning("Request rating to continue...")
-    st.stop()
+        st.success("The predicted rating\n for your resort is:")
+        rating = model.predict(resort_for_prediction.reshape(1, -1))
+        st.warning(rating[0].capitalize() + '!')
 
 st.write("Make changes to improve your rating")
 make_changes = st.radio("Make Changes?", ["Yes", "No"], index=1)
@@ -173,14 +162,46 @@ if "Cost" in features_to_update:
 
 if "Pistes" in features_to_update:
     updated_piste_length = st.number_input("Updated piste length (in kilometres)",
-                                               min_value=0.0, max_value=3000.0, value=updated_resort[2], step=0.1)
-    #updated_piste_length_blue = st.number_input("Length of blue ski pistes, kilometres", 0.0, piste_length)
-    #updated_piste_length_red = st.number_input("Length of red ski pistes, kilometres", 0.0,
-                                           #piste_length - piste_length_blue)
-    #updated_piste_length_black = st.number_input("Length of black ski pistes, kilometres",
-                                           #  piste_length - piste_length_blue - piste_length_red,
-                                            # piste_length - piste_length_blue - piste_length_red)
+                                            min_value=0.0, max_value=3000.0, value=updated_resort[2], step=0.1)
+    st.text(f'Current piste breakdown:\n' +
+            f'Blue: {updated_resort[3]}%\n' +
+            f'Red: {updated_resort[4]}%\n' +
+            f'Black: {100 - updated_resort[4] - updated_resort[3]}%')
+    updated_piste_length_blue = st.number_input("Length of blue ski pistes, kilometres",
+                                                0.0, updated_piste_length,
+                                                value=updated_resort[3] * updated_piste_length / 100)
+    updated_piste_length_red = st.number_input("Length of red ski pistes, kilometres",
+                                                0.0, updated_piste_length,
+                                                value=updated_resort[4] * updated_piste_length / 100)
+    updated_piste_length_black = st.number_input("Length of black ski pistes, kilometres",
+                                                0.0, updated_piste_length,
+                                                value=updated_piste_length - (updated_piste_length_red +
+                                                                              updated_piste_length_blue))
+    # Update the values
+    updated_resort[2] = updated_piste_length
+    updated_resort[3] = (updated_piste_length_blue / updated_piste_length) * 100  # Piste breakdown is in %s
+    updated_resort[4] = (updated_piste_length_red / updated_piste_length) * 100
+
+    # Display New Breakdown
+    st.text(f'New breakdown:\n' +
+            f'Blue: {round(updated_resort[3], 2)}%\n' +
+            f'Red: {round(updated_resort[4], 2)}%\n' +
+            f'Black: {round((updated_piste_length_black / updated_piste_length) * 100, 2)}%')
 
 if "Elevation Details" in features_to_update:
-    pass
+    # New elevation information
+    min_elevation = st.number_input("Base elevation, metres", 0, 4000, value=int(updated_resort[1]), key='min')
+    max_elevation = st.number_input("Peak elevation, metres", 0, 4000,
+                                    value=int(updated_resort[1] + updated_resort[0]),
+                                    key='max')
+    updated_resort[1] = min_elevation
+    updated_resort[0] = max_elevation - updated_resort[1]
+
+_, col2, _ = st.beta_columns(3)
+
+with col2:
+    if st.button("Get New Rating"):
+        st.success("The new rating\n for your resort is:")
+        rating = model.predict(updated_resort.reshape(1, -1))
+        st.warning(rating[0].capitalize() + '!')
 
