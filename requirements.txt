@@ -1,0 +1,2 @@
+# Additional requirements for streamlit app
+scikit-learn
