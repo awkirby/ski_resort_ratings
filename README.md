@@ -9,16 +9,12 @@ The programme can be used to inform ski resort managers on the most
 effective investment strategies
 
 ## Methodology
-Uses data scraped from the internet, see ski_scraper repository, to train
+Uses data scraped from the internet with Selenium, see ski_scraper repository, to train
 a random forest classifier from the Sklearn library.
 
 ## Utilisation
-1. Download repo
-2. Install streamlit in your preferred environment
-3. Run using "streamlit run user_interface.py"
+[Ski Resort Manager Web-App](https://share.streamlit.io/awkirby/ski_resort_ratings/user_interface.py)
 
 ## Future Updates
 * Add more classifiers
-* Complete user interface
-* Host user interface (no need for repo download)
 * Augment data to improve accuracy
