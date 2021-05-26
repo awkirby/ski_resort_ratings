@@ -11,34 +11,46 @@ import numpy as np
 
 st.title('Ski Resort Manager')
 
-st.write("Select details of your current resort\n")
+st.markdown('**Welcome to Ski Resort Manager!**')
+st.markdown('A web-app that allows you to explore ski resorts from across the world, '
+            'rate them using pre-trained machine learning algorithms, '
+            'and explore how changes to key features can improve the customer experience.')
+st.markdown('And if your resorts is not listed or you want to make your own resort tycoon style, '
+            'that option is also available.')
+st.markdown('**How to use**')
+st.markdown('1. Select your resort (if available) or create it if it is not')
+st.markdown('2. Get a rating')
+st.markdown('3. Then have a go at improving it')
+st.markdown('**Have fun!**')
 
 # Load stuff
 df_resorts = pd.read_csv("data/resorts_data_for_ratings.csv", index_col=0)    # Original Data
 df_resorts_ml = pd.read_csv("data/resort_data_classifier_ready.csv", index_col=0)  # Data used in model
 model = pickle.load(open('random_forest_model.pkl', 'rb'))                    # Model
 
+st.sidebar.write("Select details of your current resort\n")
+
 # Add selection options for location and resort
-continent = st.selectbox('Continent:', sorted(df_resorts['Continent'].unique()))
+continent = st.sidebar.selectbox('Continent:', sorted(df_resorts['Continent'].unique()))
 
-country = st.selectbox('Country (if available):',
-                       sorted(df_resorts['Country'][df_resorts['Continent'] == continent].unique()))
+# Create a sorted list of unique countries, then insert a Not Available option
+countries = sorted(df_resorts['Country'][df_resorts['Continent'] == continent].unique())
+countries.insert(0, "Not Available")
 
-country_exists = st.radio("Is your country available?", ["Yes", "No"], index=0)
+country = st.sidebar.selectbox('Country (if available):', countries)
 
-if country_exists == "Yes":
+if country != "Not Available":
 
-    resort = st.selectbox('Select your resort (if available):',
-                          sorted(df_resorts['Name'][df_resorts['Country'] == country].unique()))
+    resorts = sorted(df_resorts['Name'][df_resorts['Country'] == country].unique())
+    resorts.insert(0, "Not Available")
 
-    resort_exists = st.radio("Is your resort available?", ["Yes", "No"])
+    resort = st.sidebar.selectbox('Select your resort (if available):', resorts)
 
 else:
-    country = None
-    resort_exists = "No"
+    resort = "Not Available"
 
 # Adapt interface based on selection
-if resort_exists == 'Yes':
+if resort != "Not Available":
     # Get index
     resort_index = df_resorts[df_resorts['Name'] == resort].index[0]
 
@@ -76,10 +88,10 @@ if resort_exists == 'Yes':
 
 else:
     # Get a name for the resort
-    resort = st.text_input("Your resort:", value="<enter resort name>")
+    resort = st.sidebar.text_input("Your resort:", value="<enter resort name>")
 
     if resort == "<enter resort name>":
-        st.warning("Please input a name")
+        st.sidebar.warning("Please input a name")
         st.stop()
 
     st.success("\nTell us about " + resort)
@@ -90,7 +102,7 @@ else:
     elevation_change = max_elevation - min_elevation
 
     # Piste Information
-    piste_length = st.number_input("Total length of ski pistes, kilometres", 0.0, 3000.0)
+    piste_length = st.number_input("Total length of ski pistes, kilometres", 0.0, 3000.0, 1.0)
     piste_length_blue = st.number_input("Length of blue ski pistes, kilometres", 0.0, piste_length)
     piste_length_red = st.number_input("Length of red ski pistes, kilometres", 0.0, piste_length - piste_length_blue)
     piste_length_black = st.number_input("Length of black ski pistes, kilometres",
@@ -122,7 +134,7 @@ else:
     resort_for_prediction[continent_position] = 1
 
     # Check if the resort is in an existing country
-    if country is not None:
+    if country is not "Not Available":
         country_position = list(df_resorts_ml.drop(columns=["Star Rating"]).columns).index("Country_" + country)
         resort_for_prediction[country_position] = 1
 
@@ -169,14 +181,17 @@ if "Pistes" in features_to_update:
             f'Black: {100 - updated_resort[4] - updated_resort[3]}%')
     updated_piste_length_blue = st.number_input("Length of blue ski pistes, kilometres",
                                                 0.0, updated_piste_length,
-                                                value=updated_resort[3] * updated_piste_length / 100)
+                                                value=updated_resort[3] * updated_piste_length / 100,
+                                                key='update_blue')
     updated_piste_length_red = st.number_input("Length of red ski pistes, kilometres",
-                                                0.0, updated_piste_length,
-                                                value=updated_resort[4] * updated_piste_length / 100)
+                                               0.0, updated_piste_length,
+                                               value=updated_resort[4] * updated_piste_length / 100,
+                                               key='update_red')
     updated_piste_length_black = st.number_input("Length of black ski pistes, kilometres",
-                                                0.0, updated_piste_length,
-                                                value=updated_piste_length - (updated_piste_length_red +
-                                                                              updated_piste_length_blue))
+                                                 0.0, updated_piste_length,
+                                                 value=updated_piste_length - (updated_piste_length_red +
+                                                                               updated_piste_length_blue),
+                                                 key='updated_black')
     # Update the values
     updated_resort[2] = updated_piste_length
     updated_resort[3] = (updated_piste_length_blue / updated_piste_length) * 100  # Piste breakdown is in %s
@@ -190,10 +205,10 @@ if "Pistes" in features_to_update:
 
 if "Elevation Details" in features_to_update:
     # New elevation information
-    min_elevation = st.number_input("Base elevation, metres", 0, 4000, value=int(updated_resort[1]), key='min')
+    min_elevation = st.number_input("Base elevation, metres", 0, 4000, value=int(updated_resort[1]), key='min_update')
     max_elevation = st.number_input("Peak elevation, metres", 0, 4000,
                                     value=int(updated_resort[1] + updated_resort[0]),
-                                    key='max')
+                                    key='max_update')
     updated_resort[1] = min_elevation
     updated_resort[0] = max_elevation - updated_resort[1]
 
